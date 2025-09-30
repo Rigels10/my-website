@@ -193,21 +193,7 @@
 </div>
 
 
-<script src="./users.js?v=20250930151136"></script>
-<script>
-  (function() {
-    try {
-      var p = new URLSearchParams(location.search);
-      if (p.has("reset")) {
-        localStorage.removeItem("aicTasksV1");
-        // remove the query and reload clean
-        var u = new URL(location.href);
-        u.searchParams.delete("reset");
-        location.replace(u.pathname + (u.searchParams.toString()?("?"+u.searchParams.toString()):""));
-      }
-    } catch (e) {}
-  })();
-</script>
+<script src="./users.js?v=20250930152446"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
@@ -1089,6 +1075,50 @@ document.addEventListener('DOMContentLoaded', ()=>{ try{ refreshAllStatusColors(
     document.addEventListener("DOMContentLoaded", start);
   }else{
     start();
+  }
+})();
+</script>
+
+
+<style>
+  #aic-share-btn{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 14px;border-radius:10px;background:#0d6efd;color:#fff;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.2);}
+  #aic-share-btn:hover{opacity:.9}
+</style>
+<button id="aic-share-btn" title="Krijo link për ta hapur në pajisje tjetër">Share link</button>
+<script>
+(function(){
+  const KEY = "aicTasksV1";
+  // Import from URL hash (#state=...)
+  try {
+    if (location.hash.startsWith("#state=")) {
+      const encoded = location.hash.slice(7);
+      const json = atob(decodeURIComponent(encoded));
+      localStorage.setItem(KEY, json);
+      // clear the hash and reload clean
+      location.hash = "";
+      location.reload();
+    }
+  } catch(e){ console.error("Import from hash failed", e); }
+  // Share button
+  const btn = document.getElementById("aic-share-btn");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      try {
+        const state = localStorage.getItem(KEY) || "{}";
+        const encoded = encodeURIComponent(btoa(state));
+        const url = location.origin + location.pathname + "#state=" + encoded;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          btn.textContent = "Link copied ✔";
+          setTimeout(()=>btn.textContent="Share link", 1500);
+        } else {
+          prompt("Copy this link", url);
+        }
+      } catch(e){
+        console.error(e);
+        prompt("Copy this link", location.href);
+      }
+    });
   }
 })();
 </script>
