@@ -4,7 +4,6 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="build-timestamp" content="20250930143057">
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -198,7 +197,7 @@
 </div>
 
 
-<script src="./users.js?v=20250930143057"></script>
+<script src="users.v2.js?v=20250930143757"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
@@ -1081,24 +1080,6 @@ document.addEventListener('DOMContentLoaded', ()=>{ try{ refreshAllStatusColors(
   }else{
     start();
   }
-})();
-</script>
-
-
-<script>
-(function() {
-  try {
-    var KEY = 'site_build_ts';
-    var newTs = '20250930143057';
-    var oldTs = localStorage.getItem(KEY);
-    if (oldTs && oldTs !== newTs) {
-      // bust caches by reloading with a version param
-      var u = new URL(window.location.href);
-      u.searchParams.set('v', newTs);
-      window.location.replace(u.toString());
-    }
-    localStorage.setItem(KEY, newTs);
-  } catch (e) {}
 })();
 </script>
 
