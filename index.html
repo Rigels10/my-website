@@ -193,7 +193,7 @@
 </div>
 
 
-<script src="./users.js?v=20250930152446"></script>
+<script src="./users.js?v=20250930153756"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
@@ -1080,47 +1080,69 @@ document.addEventListener('DOMContentLoaded', ()=>{ try{ refreshAllStatusColors(
 </script>
 
 
-<style>
-  #aic-share-btn{position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 14px;border-radius:10px;background:#0d6efd;color:#fff;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.2);}
-  #aic-share-btn:hover{opacity:.9}
-</style>
-<button id="aic-share-btn" title="Krijo link për ta hapur në pajisje tjetër">Share link</button>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+
 <script>
-(function(){
-  const KEY = "aicTasksV1";
-  // Import from URL hash (#state=...)
+/* ===== Firebase Config (PASTE YOURS) =====
+  - Shko te Firebase Console → Project settings → Your apps (</>)
+  - Kopjo objektin firebaseConfig dhe zëvendëso më poshtë.
+*/
+const firebaseConfig = {
+  apiKey: "AIzaSyDjttdgfTjtLtxdDNSYIqtKmh4FNYaB9vw",
+  authDomain: "aic-projects-57baa.firebaseapp.com",
+  projectId: "aic-projects-57baa",
+  storageBucket: "aic-projects-57baa.firebasestorage.app",
+  messagingSenderId: "267074355981",
+  appId: "1:267074355981:web:38dd5942c5c8849218e644",
+  measurementId: "G-4X4GTKYP2R"
+};
+
+// Init + anonymous auth
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+auth.signInAnonymously().catch(console.error);
+
+// Workspace slug (mund ta ndryshosh me një input nga UI)
+const WORKSPACE_ID = "default";
+
+// Helpers: cloud save/load
+async function saveDataToCloud(obj) {
+  const uid = auth.currentUser && auth.currentUser.uid;
+  if (!uid) return;
+  await db.collection("tasks").doc(uid)
+    .collection("workspaces").doc(WORKSPACE_ID)
+    .set({ data: obj, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+}
+
+async function loadDataFromCloud() {
+  const uid = auth.currentUser && auth.currentUser.uid;
+  if (!uid) return null;
+  const snap = await db.collection("tasks").doc(uid)
+    .collection("workspaces").doc(WORKSPACE_ID).get();
+  return snap.exists ? snap.data().data : null;
+}
+
+// Patch existing functions if they exist
+auth.onAuthStateChanged(async () => {
   try {
-    if (location.hash.startsWith("#state=")) {
-      const encoded = location.hash.slice(7);
-      const json = atob(decodeURIComponent(encoded));
-      localStorage.setItem(KEY, json);
-      // clear the hash and reload clean
-      location.hash = "";
-      location.reload();
+    const cloud = await loadDataFromCloud();
+    if (cloud) {
+      if (typeof window.data !== "undefined") window.data = cloud;
+      if (typeof window.render === "function") window.render();
     }
-  } catch(e){ console.error("Import from hash failed", e); }
-  // Share button
-  const btn = document.getElementById("aic-share-btn");
-  if (btn) {
-    btn.addEventListener("click", async () => {
-      try {
-        const state = localStorage.getItem(KEY) || "{}";
-        const encoded = encodeURIComponent(btoa(state));
-        const url = location.origin + location.pathname + "#state=" + encoded;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(url);
-          btn.textContent = "Link copied ✔";
-          setTimeout(()=>btn.textContent="Share link", 1500);
-        } else {
-          prompt("Copy this link", url);
-        }
-      } catch(e){
-        console.error(e);
-        prompt("Copy this link", location.href);
-      }
-    });
-  }
-})();
+  } catch(e) { console.error(e); }
+});
+
+window.saveData = async function() {
+  try {
+    if (typeof window.data === "undefined") return;
+    await saveDataToCloud(window.data);
+  } catch(e) { console.error(e); }
+};
 </script>
 
 </body>
