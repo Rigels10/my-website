@@ -193,7 +193,21 @@
 </div>
 
 
-<script src="./users.js"></script>
+<script src="./users.js?v=20250930151136"></script>
+<script>
+  (function() {
+    try {
+      var p = new URLSearchParams(location.search);
+      if (p.has("reset")) {
+        localStorage.removeItem("aicTasksV1");
+        // remove the query and reload clean
+        var u = new URL(location.href);
+        u.searchParams.delete("reset");
+        location.replace(u.pathname + (u.searchParams.toString()?("?"+u.searchParams.toString()):""));
+      }
+    } catch (e) {}
+  })();
+</script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
