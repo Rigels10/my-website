@@ -1,82 +1,51 @@
 <!DOCTYPE html>
 <html lang="sq">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AIC - Tasks & Users (Firebase)</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AIC Tasks (Classic)</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="container">
-    <h1>AIC - Tasks & Users</h1>
-    <div class="sub">Real-time demo me Firebase Firestore. Workspace: <code id="ws"></code></div>
+    <h1>AIC Tasks</h1>
+    <div class="sub">Classic UI me Firebase Firestore • Workspace: <code id="ws"></code></div>
+    <div id="status" class="warn">Duke u lidhur...</div>
 
-    <div id="status" class="warn">Duke u lidhur me Firebase…</div>
-
-    <div class="tabs">
-      <button class="tab active" data-tab="tasks">Tasks</button>
-      <button class="tab" data-tab="users">Users</button>
-      <button class="tab" data-tab="settings">Settings</button>
+    <div class="toolbar">
+      <input id="t-title" placeholder="Titulli i taskut" style="flex:2">
+      <select id="t-owner" style="flex:1"></select>
+      <select id="t-priority" class="small">
+        <option value="low">low</option>
+        <option value="medium" selected>medium</option>
+        <option value="high">high</option>
+      </select>
+      <select id="t-status" class="small">
+        <option>OPEN</option>
+        <option>IN PROGRESS</option>
+        <option>DONE</option>
+        <option>CLOSED</option>
+      </select>
+      <button id="btnAdd">Shto</button>
+      <span style="flex:1"></span>
+      <select id="f-status" class="small">
+        <option value="">Status: All</option>
+        <option>OPEN</option>
+        <option>IN PROGRESS</option>
+        <option>DONE</option>
+        <option>CLOSED</option>
+      </select>
+      <select id="f-owner" class="small"><option value="">Owner: All</option></select>
+      <button id="btnClear" class="secondary">Pastro</button>
     </div>
 
-    <section id="tab-tasks" class="card">
-      <div class="row">
-        <input id="t-title" placeholder="Titulli i taskut" style="flex:2">
-        <select id="t-owner" style="flex:1"></select>
-        <select id="t-priority">
-          <option value="low">Low</option>
-          <option value="medium" selected>Medium</option>
-          <option value="high">High</option>
-        </select>
-        <select id="t-status">
-          <option>OPEN</option>
-          <option>IN PROGRESS</option>
-          <option>DONE</option>
-          <option>CLOSED</option>
-        </select>
-        <button id="btnAddTask">Shto</button>
-      </div>
-
-      <div class="row">
-        <select id="f-status">
-          <option value="">Status: All</option>
-          <option>OPEN</option>
-          <option>IN PROGRESS</option>
-          <option>DONE</option>
-          <option>CLOSED</option>
-        </select>
-        <select id="f-owner"><option value="">Owner: All</option></select>
-        <button id="btnClear" class="secondary">Pastro filtre</button>
-      </div>
-
-      <div id="tasks" class="list"></div>
-    </section>
-
-    <section id="tab-users" class="card hidden">
-      <div class="row">
-        <input id="u-email" type="email" placeholder="p.sh. editor@aicorporation.al" style="flex:1">
-        <button id="btnAddUser">Shto User</button>
-      </div>
-      <div id="users" class="list"></div>
-    </section>
-
-    <section id="tab-settings" class="card hidden">
-      <div class="kv">
-        <label>Workspace ID</label>
-        <input id="s-workspace" placeholder="p.sh. aic">
-        <label></label><button id="btnApplyWS">Ndrysho workspace</button>
-      </div>
-      <hr>
-      <div>Shkruaj <code>?space=&lt;id&gt;</code> në URL për të hapur një workspace specifik.</div>
-      <div style="margin-top:8px">Rregullat e sugjeruara janë në <code>firestore.rules.txt</code>.</div>
-    </section>
+    <div id="list" class="list"></div>
 
     <footer>
-      Made for AIC - Firebase Firestore (users + tasks) - real-time updates
+      AIC • Firestore (spaces/&lt;workspace&gt;) • <a href="?space=aic">?space=aic</a>
     </footer>
   </div>
 
-  <!-- Firebase SDK (modular via CDN) -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>
