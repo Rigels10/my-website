@@ -257,7 +257,20 @@ function renderSidebar(){
     const addListBtn = document.createElement("div"); addListBtn.className = "icon-btn"; addListBtn.title = "Shto Listë"; addListBtn.onclick = (e)=>{ e.stopPropagation(); if(isEditor()) addList(sidx); };
     const deleteSpaceBtn = document.createElement("div"); deleteSpaceBtn.className = "icon-btn trash"; deleteSpaceBtn.title="Fshi Hapësirën"; deleteSpaceBtn.textContent = "🗑"; deleteSpaceBtn.style.fontSize="12px"; deleteSpaceBtn.onclick = (e)=>{ e.stopPropagation(); if(isEditor()) deleteSpace(sidx); };
     item.append(avatar, name, addListBtn, deleteSpaceBtn);
-    item.onclick = ()=>{ row.querySelector(".children").classList.toggle("open"); };
+    item.onclick = ()=>{
+      const lists = window.data[sidx].lists || [];
+      if(lists.length){
+        try{ openList(sidx, 0); }catch(e){}
+        row.querySelector(".children")?.classList.add("open");
+      }else if(isEditor()){
+        const name = prompt("Emri i Listës:", "Lista e parë"); if(!name) return;
+        window.data[sidx].lists = [{ name, tasks:[], columns:[] }];
+        saveData(); renderSidebar();
+        try{ openList(sidx, 0); }catch(e){}
+      } else {
+        alert("Kjo hapësirë s'ka lista ende.");
+      }
+    };
     const children = document.createElement("div"); children.className="children";
     (sp.lists||[]).forEach((ls, lidx) => {
       const c = document.createElement("div"); c.className="child";
@@ -274,7 +287,15 @@ function addSpace(){
   if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   const name = prompt("Emri i Hapësirës:", "Hapësirë e re"); if(!name) return;
   const color = "#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
-  window.data.push({name, color, lists:[]}); saveData(); renderSidebar();
+  const firstList = { name: "Lista e parë", tasks: [], columns: [] };
+  window.data.push({ name, color, lists:[firstList] });
+  const sidx = window.data.length - 1;
+  saveData(); renderSidebar();
+  try{
+    openList(sidx, 0);
+    const block = document.getElementById("spacesWrap")?.children[sidx];
+    if(block){ block.querySelector(".children")?.classList.add("open"); }
+  }catch(e){}
 }
 function deleteSpace(sidx){
   if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
@@ -694,8 +715,11 @@ function applyRoleUI(){
   ["btnAddTask","btnAddColumn","btnAddSpace","btnNewSpace"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.disabled = !editor;
   });
-  document.querySelectorAll("table input, table select, .pill").forEach(el=>{
-    if(el.closest("table")) el.disabled = !editor if el.tagName!=="BUTTON" else el.disabled;
+  document.querySelectorAll("table input, table select").forEach(el=>{
+    el.disabled = !editor;
+  });
+  document.querySelectorAll("table .pill").forEach(btn=>{
+    btn.disabled = !editor;
   });
   try{ renderTasks(); }catch(e){}
 }
