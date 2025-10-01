@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIC • Detyra (mailto i gatshëm)</title>
+<title>AIC • Detyra (shared + role-based)</title>
 <style>
   :root{ --bg:#f7f8fb; --surface:#ffffff; --text:#0f172a; --muted:#cbd5e1; --line:#e5e7eb;
          --primary:#2563eb; --ok:#22c55e; --danger:#ef4444; }
@@ -68,14 +68,22 @@
   .fileitem a{color:#2563eb; text-decoration:underline}
   .hint{font-size:12px; color:#64748b; margin-top:8px}
 
-  /* === Status Colors === */
   .status-select{ border-radius: 999px; padding: 4px 10px; color:#fff; border:none; font-weight:600; }
-  .status-open{ background:#22c55e; }      /* green */
-  .status-close{ background:#ef4444; }     /* red */
-  .status-done{ background:#10b981; }      /* emerald */
-  .status-progress{ background:#3b82f6; }  /* blue */
-  .status-onhold{ background:#f59e0b; }    /* amber */
-  .status-blocked{ background:#6b7280; }   /* gray */
+  .status-open{ background:#22c55e; }
+  .status-close{ background:#ef4444; }
+  .status-done{ background:#10b981; }
+  .status-progress{ background:#3b82f6; }
+  .status-onhold{ background:#f59e0b; }
+  .status-blocked{ background:#6b7280; }
+
+  /* Hard-login overlay */
+  #hardLoginOverlay{position:fixed;inset:0;background:rgba(15,23,42,.92);display:none;align-items:center;justify-content:center;z-index:99999}
+  #hardLoginCard{width:520px;max-width:92vw;background:#0b1220;color:#e2e8f0;border:1px solid #243045;border-radius:14px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  #hardLoginCard h2{margin:0 0 8px 0;font-size:22px}
+  #hardLoginRow{display:flex;gap:8px;margin-top:14px}
+  #hardLoginEmail{flex:1;height:40px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;padding:0 12px}
+  #hardLoginBtn{height:40px;border-radius:10px;border:1px solid #2563eb;background:#2563eb;color:#fff;padding:0 14px;cursor:pointer}
+  #hardLoginErr{display:none;color:#fca5a5;margin-top:10px;font-size:13px}
 </style>
 </head>
 <body>
@@ -96,6 +104,9 @@
       <div style="font-weight:600">AIC Tasks</div>
       <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
         <span id="wsLabel" class="tag">Workspace: <b id="wsName" style="margin-left:6px"></b></span>
+        <span id="whoami" style="font-size:14px; color:#475569">Pa hyrje (viewer)</span>
+        <button id="btnLogin" class="btn small">Login</button>
+        <button id="btnLogout" class="btn small" style="display:none">Logout</button>
       </div>
     </div>
 
@@ -103,28 +114,10 @@
       <div id="taskPanel" class="panel" style="display:none">
         <div class="toolbar">
           <div style="flex:1"></div>
-          <!-- KJO KUTI RUAJTET dhe PËRDORET për dërgim -->
           <input id="myEmail" class="input" style="width:260px" placeholder="Email-i im:" value="@aicorporation.al">
-          <!-- Owner filter -->
-          <select id="filterOwner" class="input">
-            <option value="">Të gjitha</option>
-            <option value="mine">Vetëm të mia</option>
-          </select>
-          <!-- Priority filter -->
-          <select id="filterPriority" class="input">
-            <option value="">Prioriteti</option>
-            <option value="I Lartë">I Lartë</option>
-            <option value="Mesëm">Mesëm</option>
-            <option value="I Ulët">I Ulët</option>
-          </select>
-          <!-- Status filter -->
-          <select id="filterStatus" class="input">
-            <option value="">Statusi</option>
-            <option value="OPEN">OPEN</option>
-            <option value="IN PROGRESS">IN PROGRESS</option>
-            <option value="DONE">DONE</option>
-            <option value="CLOSED">CLOSED</option>
-          </select>
+          <select id="filterOwner" class="input"><option value="">Të gjitha</option><option value="mine">Vetëm të mia</option></select>
+          <select id="filterPriority" class="input"><option value="">Prioriteti</option><option value="I Lartë">I Lartë</option><option value="Mesëm">Mesëm</option><option value="I Ulët">I Ulët</option></select>
+          <select id="filterStatus" class="input"><option value="">Statusi</option><option>OPEN</option><option>IN PROGRESS</option><option>DONE</option><option>CLOSED</option></select>
 
           <button id="btnAddTask" class="btn primary">Add Task</button>
           <button id="btnAddColumn" class="btn">+ Kolonë</button>
@@ -194,12 +187,25 @@
   </div>
 </div>
 
+<!-- HARD LOGIN OVERLAY -->
+<div id="hardLoginOverlay">
+  <div id="hardLoginCard">
+    <h2>Nevojitet hyrja</h2>
+    <div style="opacity:.85">Vendos email-in e punës për t'u futur.</div>
+    <div id="hardLoginRow">
+      <input id="hardLoginEmail" type="email" placeholder="emri@aicorporation.al" />
+      <button id="hardLoginBtn">Login</button>
+    </div>
+    <div id="hardLoginErr">Email i pavlefshëm.</div>
+  </div>
+</div>
 
 <script src="./users.js"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
 const MYMAIL_KEY = "aicMyEmail";
+const SESSION_KEY = "APP_SESSION";
 window.data = [];
 let current = { spaceIndex:null, listIndex:null };
 let editingTaskIndex = null;
@@ -227,6 +233,16 @@ function loadLocal(){
   }catch{}
   window.data = []; saveLocal();
 }
+function getSession(){
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || {}; } catch(e){ return {}; }
+}
+function setSession(s){
+  localStorage.setItem(SESSION_KEY, JSON.stringify(s||{}));
+}
+function isEditor(){
+  const s = getSession();
+  return (s.role||"").toLowerCase() === "editor";
+}
 
 /* ------------------ Sidebar ------------------ */
 const spacesWrap = document.getElementById("spacesWrap");
@@ -237,17 +253,17 @@ function renderSidebar(){
     const item = document.createElement("div"); item.className = "space-item";
     const avatar = document.createElement("div"); avatar.className = "avatar"; avatar.style.background = sp.color || "#f59e0b"; avatar.textContent = (sp.name?.trim()[0] || "S").toUpperCase();
     const name = document.createElement("div"); name.className = "name"; name.textContent = sp.name;
-    name.ondblclick = (e)=>{ e.stopPropagation(); inlineRenameSpace(sidx, name); };
-    const addListBtn = document.createElement("div"); addListBtn.className = "icon-btn"; addListBtn.title = "Shto Listë"; addListBtn.onclick = (e)=>{ e.stopPropagation(); addList(sidx); };
-    const deleteSpaceBtn = document.createElement("div"); deleteSpaceBtn.className = "icon-btn trash"; deleteSpaceBtn.title="Fshi Hapësirën"; deleteSpaceBtn.textContent = "🗑"; deleteSpaceBtn.style.fontSize="12px"; deleteSpaceBtn.onclick = (e)=>{ e.stopPropagation(); deleteSpace(sidx); };
+    name.ondblclick = (e)=>{ e.stopPropagation(); if(isEditor()) inlineRenameSpace(sidx, name); };
+    const addListBtn = document.createElement("div"); addListBtn.className = "icon-btn"; addListBtn.title = "Shto Listë"; addListBtn.onclick = (e)=>{ e.stopPropagation(); if(isEditor()) addList(sidx); };
+    const deleteSpaceBtn = document.createElement("div"); deleteSpaceBtn.className = "icon-btn trash"; deleteSpaceBtn.title="Fshi Hapësirën"; deleteSpaceBtn.textContent = "🗑"; deleteSpaceBtn.style.fontSize="12px"; deleteSpaceBtn.onclick = (e)=>{ e.stopPropagation(); if(isEditor()) deleteSpace(sidx); };
     item.append(avatar, name, addListBtn, deleteSpaceBtn);
     item.onclick = ()=>{ row.querySelector(".children").classList.toggle("open"); };
     const children = document.createElement("div"); children.className="children";
     (sp.lists||[]).forEach((ls, lidx) => {
       const c = document.createElement("div"); c.className="child";
       const txt = document.createElement("div"); txt.textContent = ls.name;
-      txt.ondblclick = (e)=>{ e.stopPropagation(); inlineRenameList(sidx, lidx, txt); };
-      const x = document.createElement("div"); x.className="x"; x.title="Fshi Listën"; x.textContent="×"; x.onclick = (e)=>{ e.stopPropagation(); deleteList(sidx, lidx); };
+      txt.ondblclick = (e)=>{ e.stopPropagation(); if(isEditor()) inlineRenameList(sidx, lidx, txt); };
+      const x = document.createElement("div"); x.className="x"; x.title="Fshi Listën"; x.textContent="×"; x.onclick = (e)=>{ e.stopPropagation(); if(isEditor()) deleteList(sidx, lidx); };
       c.onclick = (e)=>{ e.stopPropagation(); openList(sidx, lidx); };
       c.append(txt, x); children.append(c);
     });
@@ -255,23 +271,27 @@ function renderSidebar(){
   });
 }
 function addSpace(){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   const name = prompt("Emri i Hapësirës:", "Hapësirë e re"); if(!name) return;
   const color = "#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
   window.data.push({name, color, lists:[]}); saveData(); renderSidebar();
 }
 function deleteSpace(sidx){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   if(!confirm(`Ta fshij “${window.data[sidx].name}” dhe të gjitha Listat/Detyrat e saj?`)) return;
   window.data.splice(sidx,1);
   if(current.spaceIndex===sidx){ document.getElementById("taskPanel").style.display="none"; current={spaceIndex:null,listIndex:null}; }
   saveData(); renderSidebar();
 }
 function addList(sidx){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   const name = prompt("Emri i Listës:", "Listë e re"); if(!name) return;
   window.data[sidx].lists = window.data[sidx].lists || [];
   window.data[sidx].lists.push({name, tasks:[], columns:[]}); saveData(); renderSidebar();
   const block = spacesWrap.children[sidx]; if(block){ block.querySelector(".children").classList.add("open"); }
 }
 function deleteList(sidx, lidx){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   if(!confirm(`Ta fshij Listën “${window.data[sidx].lists[lidx].name}”?`)) return;
   window.data[sidx].lists.splice(lidx,1);
   if(current.spaceIndex===sidx && current.listIndex===lidx){ document.getElementById("taskPanel").style.display="none"; current={spaceIndex:null,listIndex:null}; }
@@ -279,7 +299,6 @@ function deleteList(sidx, lidx){
 }
 document.getElementById("btnAddSpace").onclick = addSpace;
 document.getElementById("btnNewSpace").onclick = addSpace;
-
 
 /* ------------------ Dynamic Columns (per List) ------------------ */
 function ensureListSchema(ls){
@@ -289,6 +308,7 @@ function ensureListSchema(ls){
 }
 function genId(){ return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function addColumnPrompt(){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   const name = prompt("Titulli i kolonës:", "Kolonë e re"); if(!name) return;
   let type = prompt("Tipi i kolonës (text | checkbox | date):", "text");
   type = (type||"text").trim().toLowerCase();
@@ -302,12 +322,9 @@ function addColumnPrompt(){
   rebuildTaskHeader(); renderTasks();
 }
 function renameColumn(ls, cidx, thEl){
-  if(typeof makeInlineRename === 'function'){
-    makeInlineRename(thEl, ls.columns[cidx].name, (v)=>{ ls.columns[cidx].name=v; saveData(); rebuildTaskHeader(); });
-  }else{
-    const v = prompt('Emri i ri i kolonës:', ls.columns[cidx].name);
-    if(v){ ls.columns[cidx].name=v; saveData(); rebuildTaskHeader(); }
-  }
+  if(!isEditor()) return;
+  const v = prompt('Emri i ri i kolonës:', ls.columns[cidx].name);
+  if(v){ ls.columns[cidx].name=v; saveData(); rebuildTaskHeader(); }
 }
 function rebuildTaskHeader(){
   const headRow = document.getElementById('taskHeadRow');
@@ -382,27 +399,20 @@ function renderTasks(){
   ensureListSchema(list);
   rebuildTaskHeader();
 
-  // 🧩 Mblidh dhe aplikoni filtrat
   const myEmail = (document.getElementById("myEmail")?.value || "").trim().toLowerCase();
   let tasks = [...(list.tasks || [])];
 
-  // Filtri i pronarit
   if (ownerFilter === "mine" && myEmail) {
     tasks = tasks.filter(t => (t.email || "").trim().toLowerCase() === myEmail);
   }
-
-  // Filtri i prioritetit
   if (priorityFilter) {
     const pf = priorityFilter.toLowerCase();
     tasks = tasks.filter(t => (t.priority || "").toLowerCase() === pf);
   }
-
-  // Filtri i statusit
   if (statusFilter) {
     tasks = tasks.filter(t => (t.status || "OPEN") === statusFilter);
   }
 
-  // Shfaqja e rreshtave
   tasks.forEach((t, idx) => {
     const tr = document.createElement("tr");
     const td = (html)=>{ const e=document.createElement("td"); e.innerHTML = html; return e; };
@@ -413,7 +423,6 @@ function renderTasks(){
     tr.append(td(t.priority||"—"));
     tr.append(td(t.email||"—"));
 
-    // Dynamic columns
     list.columns.forEach(col=>{
       const cell = document.createElement("td");
       if(!t.extras) t.extras = {};
@@ -421,17 +430,20 @@ function renderTasks(){
       if(col.type === "text"){
         const inp = document.createElement("input"); inp.type="text"; inp.className="input";
         inp.value = t.extras[col.id] || "";
-        inp.onchange = ()=>{ t.extras[col.id] = inp.value; saveData(); };
+        inp.onchange = ()=>{ if(!isEditor()) return; t.extras[col.id] = inp.value; saveData(); };
+        inp.disabled = !isEditor();
         cell.appendChild(inp);
       }else if(col.type === "date"){
         const inp = document.createElement("input"); inp.type="date"; inp.className="input";
         if(t.extras[col.id]) inp.value = t.extras[col.id];
-        inp.onchange = ()=>{ t.extras[col.id] = inp.value; saveData(); };
+        inp.onchange = ()=>{ if(!isEditor()) return; t.extras[col.id] = inp.value; saveData(); };
+        inp.disabled = !isEditor();
         cell.appendChild(inp);
-      }else{ // checkbox
+      }else{
         const inp = document.createElement("input"); inp.type="checkbox";
         inp.checked = !!t.extras[col.id];
-        inp.onchange = ()=>{ t.extras[col.id] = inp.checked; saveData(); };
+        inp.onchange = ()=>{ if(!isEditor()) { inp.checked = !!t.extras[col.id]; return; } t.extras[col.id] = inp.checked; saveData(); };
+        inp.disabled = !isEditor();
         cell.appendChild(inp);
       }
       tr.append(cell);
@@ -442,35 +454,39 @@ function renderTasks(){
     ["OPEN","IN PROGRESS","DONE","CLOSED"].forEach(st=>{
       const o=document.createElement("option"); o.value=st; o.textContent=st; if((t.status||"OPEN")===st) o.selected=true; sel.append(o);
     });
-    sel.onchange = () => { applyStatusClass(sel, sel.value); t.status = sel.value; saveData(); };
+    sel.onchange = () => { if(!isEditor()) { sel.value = t.status||"OPEN"; return; } applyStatusClass(sel, sel.value); t.status = sel.value; saveData(); };
+    sel.disabled = !isEditor();
     applyStatusClass(sel, sel.value || t.status);
     statusTd.append(sel); tr.append(statusTd);
 
     const actions = document.createElement("td");
     const wrap = document.createElement("div"); wrap.style.display="flex"; wrap.style.gap="8px";
     const bEmail = mkButton("Dërgo Email", false, ()=>sendEmail(t));
-    const bEdit  = mkButton("Ndrysho", false, ()=>openModal(idx));
-    const bDel   = mkButton("Fshi", false, ()=>deleteTask(idx));
+    const bEdit  = mkButton("Ndrysho", !isEditor(), ()=>openModal(idx));
+    const bDel   = mkButton("Fshi", !isEditor(), ()=>deleteTask(idx));
     const bDocs  = mkButton("Dokumente", false, ()=>showFiles(idx));
     wrap.append(bEmail,bEdit,bDel,bDocs); actions.append(wrap); tr.append(actions);
 
     taskBody.append(tr);
   });
+
+  // disable header controls by role
+  document.getElementById("btnAddTask").disabled   = !isEditor();
+  document.getElementById("btnAddColumn").disabled = !isEditor();
+  document.getElementById("btnAddSpace").disabled  = !isEditor();
+  document.getElementById("btnNewSpace").disabled  = !isEditor();
 }
 function deleteTask(i){
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   if(!confirm("Ta fshij detyrën?")) return;
   const list = window.data[current.spaceIndex].lists[current.listIndex];
   list.tasks.splice(i,1); saveData(); renderTasks();
 }
-document.getElementById("btnAddTask").onclick = ()=>openModal(null);
+document.getElementById("btnAddTask").onclick = ()=>{ if(!isEditor()) return alert("Lejohet vetëm për 'editor'."); openModal(null); };
 
 /* ------------------ Dërgo Email (mailto) ------------------ */
 function sendEmail(task){
-  try{
-    const s = JSON.parse(localStorage.getItem("APP_SESSION")||"{}");
-    const isEditor = (s.role||"").toLowerCase()==="editor";
-    if(!isEditor){ alert("Veprimi lejohet vetëm për rolin 'editor'."); return; }
-  }catch(e){}
+  if(!isEditor()) return alert("Veprimi lejohet vetëm për rolin 'editor'.");
   const myEmailEl = document.getElementById("myEmail");
   const senderRemember = (myEmailEl?.value||"").trim();
   if(senderRemember) localStorage.setItem(MYMAIL_KEY, senderRemember);
@@ -524,6 +540,7 @@ f_status.querySelectorAll(".status-chip").forEach(ch=>ch.onclick = ()=> setStatu
 
 function openModal(taskIndex){
   if(current.spaceIndex===null) return alert("Zgjidh një Listë nga majtas.");
+  if(!isEditor()) return alert("Lejohet vetëm për 'editor'.");
   editingTaskIndex = taskIndex;
   const sp = window.data[current.spaceIndex]; const ls = sp.lists[current.listIndex];
   folderPath.textContent = `/docs/${slug(sp.name)}/${slug(ls.name)}/`;
@@ -545,6 +562,7 @@ function closeModal(){ overlay.style.display="none"; }
 document.getElementById("btnCancel").onclick = closeModal;
 
 document.getElementById("btnSave").onclick = ()=>{
+  if(!isEditor()) return;
   const list = window.data[current.spaceIndex].lists[current.listIndex];
   const obj = {
     name: f_title.value || "Untitled",
@@ -561,14 +579,13 @@ document.getElementById("btnSave").onclick = ()=>{
   saveData(); renderTasks(); closeModal();
 };
 
-// Upload lokal (vetëm listim; pa server)
 drop.onclick = ()=>fileInput.click();
 drop.ondragover = (e)=>{ e.preventDefault(); drop.style.background="#f1f5f9"; };
 drop.ondragleave = ()=>{ drop.style.background="#fff"; };
 drop.ondrop = (e)=>{ e.preventDefault(); drop.style.background="#fff"; handleUpload(e.dataTransfer.files); };
 fileInput.onchange = ()=>handleUpload(fileInput.files);
 function handleUpload(files){
-  [...files].forEach(f=> tempFiles.append({name:f.name, size:f.size, type:f.type}));
+  [...files].forEach(f=> tempFiles.push({name:f.name, size:f.size, type:f.type}));
   renderTempFiles();
 }
 function renderTempFiles(){
@@ -587,6 +604,7 @@ function showFiles(i){ openModal(i); }
 
 /* ===== Inline Rename Helpers ===== */
 function makeInlineRename(el, initialValue, onSave){
+  if(!isEditor()) return;
   if(el.dataset.editing === "1") return;
   el.dataset.editing = "1";
   const oldText = initialValue ?? el.textContent.trim();
@@ -640,26 +658,80 @@ const myEmailEl = document.getElementById("myEmail");
 myEmailEl.value = localStorage.getItem(MYMAIL_KEY) || myEmailEl.value || "";
 myEmailEl.addEventListener("input", ()=>localStorage.setItem(MYMAIL_KEY, myEmailEl.value.trim()));
 
-/* 🔗 Lidh eventet e filtrave */
+/* 🔗 Filtrat */
 const filterPriorityEl = document.getElementById("filterPriority");
 const filterOwnerEl = document.getElementById("filterOwner");
 const filterStatusEl = document.getElementById("filterStatus");
-
 function triggerRefresh(){ renderTasks(); }
-
 filterPriorityEl?.addEventListener("change", () => { priorityFilter = filterPriorityEl.value || ""; triggerRefresh(); });
 filterOwnerEl?.addEventListener("change",   () => { ownerFilter = filterOwnerEl.value || "";   triggerRefresh(); });
 filterStatusEl?.addEventListener("change",  () => { statusFilter = filterStatusEl.value || ""; triggerRefresh(); });
 
-document.addEventListener('DOMContentLoaded', ()=>{ try{ refreshAllStatusColors(); }catch(e){} });
-
-// Provide a simple global render used by cloud loader
+// Global render that cloud loader can call
 window.render = function(){ renderSidebar(); if(current.spaceIndex!=null && current.listIndex!=null){ renderTasks(); } };
+
+// ====== Role-based login UI & logic ======
+window.APP_USERS = Array.isArray(window.APP_USERS) ? window.APP_USERS : [
+  { email: "view@aicorporation.al", name: "Viewer", role: "viewer" },
+  { email: "edit@aicorporation.al", name: "Editor", role: "editor" }
+];
+function applyRoleUI(){
+  const s = getSession();
+  const logged = !!s.email;
+  const overlay = document.getElementById("hardLoginOverlay");
+  const app     = document.getElementById("appRoot");
+  const who     = document.getElementById("whoami");
+  const bIn     = document.getElementById("btnLogin");
+  const bOut    = document.getElementById("btnLogout");
+  if(app) app.style.display = logged ? "grid" : "none";
+  if(overlay) overlay.style.display = logged ? "none" : "flex";
+  if(who) who.textContent = logged ? `${s.name||s.email} (${s.role||'viewer'})` : "Pa hyrje (viewer)";
+  if(bIn) bIn.style.display = logged ? "none" : "inline-flex";
+  if(bOut) bOut.style.display = logged ? "inline-flex" : "none";
+
+  // Disable controls according to role
+  const editor = isEditor();
+  ["btnAddTask","btnAddColumn","btnAddSpace","btnNewSpace"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.disabled = !editor;
+  });
+  document.querySelectorAll("table input, table select, .pill").forEach(el=>{
+    if(el.closest("table")) el.disabled = !editor if el.tagName!=="BUTTON" else el.disabled;
+  });
+  try{ renderTasks(); }catch(e){}
+}
+function ensureLoginWiring(){
+  document.getElementById("btnLogin")?.addEventListener("click", ()=>{
+    document.getElementById("hardLoginOverlay").style.display="flex";
+    setTimeout(()=> document.getElementById("hardLoginEmail")?.focus(), 10);
+  });
+  document.getElementById("btnLogout")?.addEventListener("click", ()=>{
+    setSession({}); applyRoleUI(); location.reload();
+  });
+  const btn = document.getElementById("hardLoginBtn");
+  const inp = document.getElementById("hardLoginEmail");
+  function doLogin(){
+    const email = (inp && inp.value || "").trim();
+    const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+    const err = document.getElementById("hardLoginErr");
+    if(!ok){ if(err) err.style.display="block"; return; }
+    const def = (window.APP_USERS||[]).find(u => (u.email||"").toLowerCase()===email.toLowerCase());
+    const session = def ? { email:def.email, name:def.name, role:def.role }
+                        : { email, name:(email.split("@")[0]||"User"), role:"viewer" };
+    setSession(session);
+    applyRoleUI();
+    location.reload();
+  }
+  if(btn) btn.addEventListener("click", doLogin);
+  if(inp) inp.addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+}
+document.addEventListener("DOMContentLoaded", ()=>{
+  ensureLoginWiring();
+  applyRoleUI();
+});
 </script>
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 
 <script>
@@ -681,7 +753,7 @@ const urlParams = new URLSearchParams(location.search);
 const WORKSPACE_ID = (urlParams.get('space') || 'aic').trim().toLowerCase();
 document.getElementById('wsName').textContent = WORKSPACE_ID;
 
-// Path i përbashkët (shared) për këtë variant UI
+// Shared document path
 const sharedDocRef = db.collection('spaces').doc(WORKSPACE_ID).collection('app').doc('v2');
 
 // Debounce helper
@@ -690,33 +762,29 @@ function debounce(fn, ms){
   return function(){ clearTimeout(saveTimer); const args=arguments; saveTimer=setTimeout(()=>fn.apply(null,args), ms); };
 }
 
-// ⬆️ Ruajtje: lokale + cloud (shared)
+// Save: local + cloud (shared)
 async function saveData(){
   try{
-    // 1) lokale
     saveLocal();
-    // 2) cloud
     const payload = { data: window.data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
     await sharedDocRef.set(payload);
   }catch(e){ console.error(e); }
 }
 const saveDataDebounced = debounce(saveData, 400);
 
-// 🔄 Real-time subscribe nga cloud (shared)
+// Real-time subscribe
 let initialPulled = false;
 sharedDocRef.onSnapshot(snap => {
   if(snap.exists){
     const cloud = snap.data()?.data || [];
-    // shmang riloop-in: mos e mbishkruaj nëse është identike me lokale
     const local = localStorage.getItem(KEY);
     const was = local ? JSON.parse(local) : null;
     const same = JSON.stringify(was) === JSON.stringify(cloud);
     window.data = cloud;
     if(!same){ saveLocal(); }
-    window.render();
+    if(typeof window.render === "function") window.render();
     initialPulled = true;
   } else {
-    // nëse s'ka doc në cloud, shty lokale si default shared
     if(!initialPulled){
       sharedDocRef.set({ data: window.data, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(console.error);
       initialPulled = true;
@@ -724,12 +792,10 @@ sharedDocRef.onSnapshot(snap => {
   }
 });
 
-// Patch operacionet që modifikojnë të dhënat të përdorin ruajtje të debounced
+// Patch: call debounced cloud save after any local save
 (function(){
-  const _push = Array.prototype.push;
-  // Nuk po monkey-patch gjithë JS-in; mjafton të thërrasim saveDataDebounced kudo ku kemi saveData
-  const origSave = window.saveData;
-  window.saveData = function(){
+  const origSave = window.saveLocal;
+  window.saveLocal = function(){
     try{ if(typeof origSave === 'function') origSave(); }catch(e){}
     saveDataDebounced();
   };
