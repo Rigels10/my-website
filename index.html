@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIC • Detyra (mailto i gatshëm)</title>
+<title>AIC PROJECTS</title>
 <style>
   :root{ --bg:#f7f8fb; --surface:#ffffff; --text:#0f172a; --muted:#cbd5e1; --line:#e5e7eb;
          --primary:#2563eb; --ok:#22c55e; --danger:#ef4444; }
@@ -77,6 +77,23 @@
   .status-onhold{ background:#f59e0b; }    /* amber */
   .status-blocked{ background:#6b7280; }   /* gray */
 </style>
+<style>
+/* Templates UI */
+#aicTplBtn{position:fixed;right:16px;bottom:16px;padding:12px 16px;border:1px solid #1d4ed8;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;z-index:2147483647}
+#aicTplOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:2147483646}
+#aicTplModal{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);min-width:720px;max-width:94vw;overflow:hidden}
+#aicTplModal header{padding:12px 16px;border-bottom:1px solid #e5e7eb;font-weight:700}
+#aicTplModal .body{padding:12px 16px}
+#aicTplModal .list{width:100%;border-collapse:separate;border-spacing:0}
+#aicTplModal th,#aicTplModal td{padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:left}
+.aicTplSmall{padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;cursor:pointer}
+.aicTplPrimary{background:#2563eb;color:#fff;border-color:#2563eb}
+/* right‑click menu */
+#aicTplCtx{position:fixed;z-index:2147483647;display:none;min-width:180px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.2);overflow:hidden}
+#aicTplCtx button{display:block;width:100%;padding:8px 12px;border:0;background:#fff;text-align:left;cursor:pointer}
+#aicTplCtx button:hover{background:#f3f4f6}
+</style>
+
 </head>
 <body>
 
@@ -115,6 +132,7 @@
 
     <div class="page">
       <div id="taskPanel" class="panel" style="display:none">
+        <h2 id="listTitle" style="margin:0 0 12px 0;border-bottom:3px solid #22c55e;padding-bottom:6px;font-size:18px;font-weight:700;color:#0f172a;display:none;"></h2>
         <div class="toolbar">
           <div style="flex:1"></div>
           <!-- KJO KUTI RUAJTET dhe PËRDORET për dërgim -->
@@ -241,7 +259,8 @@ function loadLocal(){
     }
   }catch{}
   window.data = [];
-window._openSpaces = new Set(); // keeps which space indices are expanded saveLocal();
+window._openSpaces = new Set(); // keeps which space indices are expanded
+saveLocal();
 }
 
 /* ------------------ Sidebar ------------------ */
@@ -393,6 +412,16 @@ function openList(sidx, lidx){
   const child = block.querySelectorAll(".child")[lidx];
   if(child) child.classList.add("active");
   taskPanel.style.display = "block";
+
+  // Vendos titullin e panelit (vija jeshile)
+  const titleEl = document.getElementById("listTitle");
+  if (titleEl) {
+    const spaceName = window.data?.[sidx]?.name || "";
+    const listName  = window.data?.[sidx]?.lists?.[lidx]?.name || "";
+    titleEl.textContent = `${spaceName} — ${listName}`.trim();
+    titleEl.style.display = "block";
+  }
+
   renderTasks();
 }
 function mkButton(txt, disabled=false, onclick=null){
@@ -775,7 +804,9 @@ sharedDocRef.onSnapshot(snap => {
     try{
       const list = Array.isArray(window.APP_USERS) ? window.APP_USERS : [];
       const hit = list.find(u => (u.email||'').toLowerCase() === email.toLowerCase());
-      return hit ? {name: hit.name||email.split('@')[0], role: (hit.role||'viewer').toLowerCase()} : {name: email.split('@')[0], role:'viewer'};
+      if (hit) return {name: hit.name||email.split('@')[0], role: (hit.role||'viewer').toLowerCase()};
+      if (/@aicorporation\.al$/i.test(email)) return {name: email.split('@')[0], role:'editor'};
+      return {name: email.split('@')[0], role:'viewer'};
     }catch(e){
       return {name: email.split('@')[0], role:'viewer'};
     }
@@ -868,6 +899,154 @@ sharedDocRef.onSnapshot(snap => {
   }else{
     init();
   }
+})();
+</script>
+
+
+<!-- Space Templates UI -->
+<button id="aicTplBtn">Template-t</button>
+<div id="aicTplOverlay">
+  <div id="aicTplModal">
+    <header style="display:flex;align-items:center;justify-content:space-between">
+      <span>Space Templates</span>
+      <button id="aicTplClose" class="aicTplSmall">Mbyll</button>
+    </header>
+    <div class="body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="aicTplName" class="input" style="flex:1" placeholder="Emri i template-it">
+        <button id="aicTplSave" class="aicTplSmall aicTplPrimary">Ruaj si template</button>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px">Ky template ruan vetëm *strukturën*: Emrin e Space dhe emrat e Listave (jo detyrat/kolonat).</div>
+      <table class="list">
+        <thead><tr><th>Emri</th><th>Space + Listat</th><th>Veprime</th></tr></thead>
+        <tbody id="aicTplBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="aicTplCtx"><button id="aicTplCtxSave">Ruaj si template</button></div>
+
+<script>
+(function(){
+  const KEY='AIC_SPACE_TEMPLATES_V1';
+  let templates=[];
+  let ctxSidx=null; // space index captured from right-click
+  let pendingTpl=null; // last captured structure
+
+  function load(){ try{ templates=JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){ templates=[]; } }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(templates)); }catch(e){} }
+
+  // Helpers to render list
+  function renderList(){
+    const body=document.getElementById('aicTplBody'); body.innerHTML='';
+    if(!templates.length){
+      const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=3; td.style.padding='10px'; td.textContent='Asnjë template ende.'; tr.appendChild(td); body.appendChild(tr);
+      return;
+    }
+    templates.forEach(t=>{
+      const tr=document.createElement('tr');
+      const td1=document.createElement('td'); td1.textContent=t.name;
+      const td2=document.createElement('td'); td2.textContent='Space: '+t.space+' | Lista: '+(t.lists||[]).join(', ');
+      const td3=document.createElement('td');
+      const use=document.createElement('button'); use.className='aicTplSmall'; use.textContent='Përdor'; use.onclick=()=>applyTemplate(t);
+      const del=document.createElement('button'); del.className='aicTplSmall'; del.style.marginLeft='8px'; del.textContent='Fshi'; del.onclick=()=>{ if(confirm('Ta fshij?')){ templates=templates.filter(x=>x.id!==t.id); save(); renderList(); }};
+      td3.appendChild(use); td3.appendChild(del);
+      tr.append(td1,td2,td3); body.appendChild(tr);
+    });
+  }
+
+  // Modal open/close
+  const overlay=document.getElementById('aicTplOverlay');
+  const btn=document.getElementById('aicTplBtn');
+  const close=document.getElementById('aicTplClose');
+  function openModal(prefill){
+    load(); if(prefill){ pendingTpl=prefill; document.getElementById('aicTplName').value=prefill.name||prefill.space||''; } else { pendingTpl=null; document.getElementById('aicTplName').value=''; }
+    renderList(); overlay.style.display='flex';
+  }
+  function closeModal(){ overlay.style.display='none'; }
+  btn.addEventListener('click', ()=>openModal());
+  close.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeModal(); });
+
+  // Save template (from modal header button) — uses pendingTpl captured from right-click
+  document.getElementById('aicTplSave').addEventListener('click', ()=>{
+    if(!pendingTpl){ alert('Kliko me të djathtën te një Space dhe zgjidh “Ruaj si template”.'); return; }
+    const name=(document.getElementById('aicTplName').value||'').trim() || pendingTpl.space;
+    const tpl={ id:'sp_'+Date.now().toString(36), name, space: pendingTpl.space, lists: (pendingTpl.lists||[]).slice() };
+    templates.push(tpl); save(); renderList(); alert('U ruajt.');
+  });
+
+  // Right-click menu in sidebar
+  const ctx=document.getElementById('aicTplCtx');
+  document.addEventListener('click', ()=>ctx.style.display='none');
+  document.addEventListener('scroll', ()=>ctx.style.display='none', true);
+  const spacesWrap=document.getElementById('spacesWrap');
+  spacesWrap.addEventListener('contextmenu', function(e){
+    const item=e.target.closest('.space-item');
+    if(!item) return;
+    e.preventDefault();
+    // find space index by row order
+    const row=item.parentElement;
+    const rows=[...spacesWrap.querySelectorAll('.space-row')];
+    ctxSidx=rows.indexOf(row);
+    ctx.style.left=e.clientX+'px'; ctx.style.top=e.clientY+'px'; ctx.style.display='block';
+  });
+
+  document.getElementById('aicTplCtxSave').addEventListener('click', function(){
+    ctx.style.display='none';
+    if(ctxSidx==null){ alert('S’gjeta Space.'); return; }
+    const sp=(window.data||[])[ctxSidx]; if(!sp){ alert('S’gjeta Space.'); return; }
+    const lists=(sp.lists||[]).map(l=>l.name||'Listë');
+    pendingTpl={space:sp.name||'Space', lists:lists, name: sp.name||'Space'};
+    openModal(pendingTpl); // hap modalin të shohësh/ruash
+  });
+
+  // Apply template: shton një Space në sidebar + listat (direkt në modelin e të dhënave)
+  function applyTemplate(t){
+    try{
+      const color = "#"+Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+      const spaceObj = { name: t.space, color, lists: (t.lists||[]).map(n=>({name:n, tasks:[], columns:[]})) };
+      window.data = Array.isArray(window.data) ? window.data : [];
+      window.data.push(spaceObj);
+      // ruaj & rifresko
+      if(typeof saveData==='function') saveData();
+      if(typeof renderSidebar==='function') renderSidebar();
+      alert('U shtua Space “'+t.space+'” me listat.');
+    }catch(e){
+      console.error(e); alert('S’ia dola të shtoj template-in.');
+    }
+  }
+
+  // Shkurtore: Ctrl+Alt+T
+  document.addEventListener('keydown', (e)=>{ if(e.ctrlKey && e.altKey && (e.key==='t'||e.key==='T')) openModal(); });
+})();
+</script>
+
+
+<!-- LIGHT NO-ROLES PATCH (keeps handlers intact) -->
+<script>
+(function(){
+  try {
+    localStorage.setItem("APP_SESSION", JSON.stringify({
+      email: "info@aicorporation.al",
+      name: "AIC",
+      role: "editor"
+    }));
+  } catch(e) {}
+  try { window.isEditor = function(){ return true; }; } catch(e){}
+  // Hide login overlays if present, but do not touch app handlers
+  const hide = sel => document.querySelectorAll(sel).forEach(n=>{ try{ n.remove(); }catch(e){} try{ n.style.display='none'; }catch(e){} });
+  const run = ()=>{
+    hide("#loginOverlay"); hide(".login-overlay"); hide("#authOverlay"); hide(".auth-overlay");
+    document.querySelectorAll("div,section,article,main").forEach(el=>{
+      const t=(el.textContent||"").toLowerCase();
+      const st=getComputedStyle(el);
+      if((st.position==='fixed'||st.position==='absolute') && (t.includes('hyni për të vazhduar')||/\blogin\b/.test(t))) {
+        try{el.remove();}catch(e){} try{el.style.display='none';}catch(e){}
+      }
+    });
+  };
+  run(); setTimeout(run,200); setTimeout(run,800);
 })();
 </script>
 
