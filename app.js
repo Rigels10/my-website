@@ -4,13 +4,13 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collec
 
 // Config i projektit tend (e njejta si me pare)
 const firebaseConfig = {
-  apiKey: "AIzaSyDjttdgfTjtLtxdDNSYIqtKmh4FNYaB9vw",
+  apiKey: "AIzaSyDjttdgFtjLttxdDNsYIqKtmh4FNYaB9Vw",
   authDomain: "aic-projects-57baa.firebaseapp.com",
   projectId: "aic-projects-57baa",
   storageBucket: "aic-projects-57baa.firebasestorage.app",
   messagingSenderId: "267074355981",
   appId: "1:267074355981:web:38dd5942c5c8849218e644",
-  measurementId: "G-4X4GTKYP2R"
+  measurementId: "G-4X4GTKYPZR"
 };
 
 const app = initializeApp(firebaseConfig);
