@@ -160,6 +160,7 @@
 
           <button id="btnAddTask" class="btn primary">Add Task</button>
           <button id="btnAddColumn" class="btn">+ Kolonë</button>
+          <button id="btnExportZip" class="btn">📦 Eksporto ZIP</button>
         </div>
 
         <div style="overflow:auto">
@@ -1049,6 +1050,153 @@ sharedDocRef.onSnapshot(snap => {
   run(); setTimeout(run,200); setTimeout(run,800);
 })();
 </script>
+
+
+<!-- ===== Export XLSX per Space -> ZIP (workspace-named) ===== -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+(function(){
+  function fmtDate(d){
+    if(!d) return "";
+    var dt = (typeof d==="number" || /^\d+$/.test(String(d))) ? new Date(Number(d)) : new Date(d);
+    return isNaN(dt.getTime()) ? "" : dt.toLocaleString();
+  }
+  function fmtUser(u){
+    if(!u) return "";
+    if(typeof u==="string") return u;
+    if(typeof u==="object"){
+      var name = u.name || u.fullName || u.displayName || u.username;
+      var email = u.email || u.mail || (u.user && u.user.email);
+      var id = u.id || u._id || u.userId;
+      return name || email || id || "";
+    }
+    return "";
+  }
+  function safeFileName(s){
+    return (s||"Projekt").replace(/[<>:"/\\|?*\x00-\x1F]/g,"-").replace(/\s+/g," ").trim();
+  }
+  function safeSheetName(s){
+    s = (s||"").replace(/[:\\/?*\[\]]/g,"-").slice(0,31);
+    return s || "Sheet";
+  }
+
+  async function exportSpacesAsZip(){
+    try{
+      var spaces = Array.isArray(window.data) ? window.data : [];
+      if(!spaces.length){ alert("S'ka të dhëna për eksport."); return; }
+
+      var zip = new JSZip();
+      var stamp = new Date().toISOString().slice(0,10);
+      var ws = (typeof WORKSPACE_ID!=="undefined" && WORKSPACE_ID) ? WORKSPACE_ID : (document.getElementById("wsName")?.textContent || "aic");
+      ws = safeFileName(ws.toLowerCase());
+      spaces.forEach(function(space){
+        var wb = XLSX.utils.book_new();
+        (space.lists||[]).forEach(function(list){
+          var cols = (list.columns||[]).map(function(c){ return { id:c.id, name:c.name, type:c.type||"text" }; });
+
+          var baseHeaders   = ["Emri","ID e detyrës","Assignee","Afati","Prioriteti","Email assignee"];
+          var dynamicHeader = cols.map(function(c){ return c.name; });
+          var tailHeaders   = ["Status","Përshkrimi","Dokumente (#)","Krijuar më","Përditësuar më","Krijuar nga","Përditësuar nga"];
+          var headers = baseHeaders.concat(dynamicHeader).concat(tailHeaders);
+
+          var rows = (list.tasks||[]).map(function(t){
+            var taskId    = t?.id ?? t?._id ?? t?.key ?? "";
+            var created   = t?.createdAt ?? t?.created_at ?? t?.created ?? "";
+            var updated   = t?.updatedAt ?? t?.updated_at ?? t?.updated ?? "";
+            var createdBy = t?.createdBy ?? t?.created_by ?? t?.author;
+            var updatedBy = t?.updatedBy ?? t?.updated_by ?? t?.lastEditor;
+
+            var base = [
+              t?.name || "",
+              taskId,
+              t?.assignee || "",
+              t?.due ? fmtDate(t.due) : "",
+              t?.priority || "",
+              t?.email || ""
+            ];
+            var dyn = cols.map(function(c){
+              var v = (t?.extras && (c.id in t.extras)) ? t.extras[c.id] : "";
+              if(c.type==="checkbox") return v ? "Po" : "Jo";
+              return (v==null?"":v);
+            });
+            var tail = [
+              t?.status || "OPEN",
+              t?.desc || "",
+              Array.isArray(t?.files) ? t.files.length : 0,
+              fmtDate(created),
+              fmtDate(updated),
+              fmtUser(createdBy),
+              fmtUser(updatedBy)
+            ];
+            return base.concat(dyn).concat(tail);
+          });
+
+          var wsData = [headers].concat(rows);
+          var sheet = XLSX.utils.aoa_to_sheet(wsData);
+          var sname = safeSheetName(list?.name || "Listë");
+          var uniq = sname, i=2;
+          while(wb.SheetNames.indexOf(uniq)>-1){ uniq = safeSheetName(sname + " ("+ (i++) +")"); }
+          XLSX.utils.book_append_sheet(wb, sheet, uniq);
+        });
+
+        var fname = safeFileName((space?.name||"Space")) + "-" + new Date().toISOString().slice(0,10) + ".xlsx";
+        var wbOut = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+        zip.file(fname, wbOut);
+      });
+
+      var blob = await zip.generateAsync({ type:"blob" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = ws + "-" + stamp + ".zip"; // EmriWorkspace-YYYY-MM-DD.zip
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    }catch(e){
+      console.error(e);
+      alert("Ndodhi një gabim gjatë eksportit.");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    var btn = document.getElementById("btnExportZip");
+    if(btn){ btn.addEventListener("click", exportSpacesAsZip); }
+  });
+})();
+</script>
+
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase config provided by the user
+    const firebaseConfig = {
+      apiKey: "AIzaSyB9gJOvrRatlOpw7IXNmwnnNQYv9ivFYmU",
+      authDomain: "aic-m-4460f.firebaseapp.com",
+      projectId: "aic-m-4460f",
+      storageBucket: "aic-m-4460f.firebasestorage.app",
+      messagingSenderId: "884813548315",
+      appId: "1:884813548315:web:0723e1899e0acc6fc2e1be",
+      measurementId: "G-NQN1J1SHJF"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function loadSpacesFromFirestore() {
+      try {
+        const snapshot = await db.collection('spaces').get();
+        const spaces = [];
+        snapshot.forEach(doc => spaces.push(doc.data()));
+        window.data = spaces;
+        console.log("✅ Firestore u lidh, spaces:", spaces);
+      } catch (e) {
+        console.error("❌ Firestore error:", e);
+      }
+    }
+    // Ngarko të dhënat; eksporti ZIP përdor window.data
+    loadSpacesFromFirestore();
+  </script>
 
 </body>
 </html>
