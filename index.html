@@ -95,7 +95,16 @@
 </style>
 
 </head>
-<body>
+\1
+<div id="auth-gate" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.85);z-index:9999;">
+  <div style="background:#ffffff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:28px;max-width:420px;width:90%;text-align:center;">
+    <h2 style="margin:0 0 8px 0;font-size:22px;line-height:1.2;color:#0f172a;">Hyni për të vazhduar</h2>
+    <p style="margin:0 0 16px 0;color:#475569;">Ky aplikacion kërkon llogari Google për të lexuar/ruajtur në Firestore.</p>
+    </div>
+</div>
+<div id="auth-controls" style="position:fixed;top:10px;right:10px;z-index:9998;display:none;">
+  <button id="btn-logout" title="Dil" style="border:1px solid #e5e7eb;border-radius:9999px;padding:8px 12px;background:#ffffff;cursor:pointer;">Dil</button>
+</div>
 
 <!-- === Hard Login Overlay (added) === -->
 <div id="hardLoginOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.92);display:flex;align-items:center;justify-content:center;z-index:99999">
@@ -227,7 +236,6 @@
   </div>
 </div>
 
-
 <script src="./users.js"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
@@ -323,7 +331,6 @@ function deleteList(sidx, lidx){
 }
 document.getElementById("btnAddSpace").onclick = addSpace;
 document.getElementById("btnNewSpace").onclick = addSpace;
-
 
 /* ------------------ Dynamic Columns (per List) ------------------ */
 function ensureListSchema(ls){
@@ -718,18 +725,6 @@ window.render = function(){ renderSidebar(); if(current.spaceIndex!=null && curr
 
 <script>
 /* ===== Firebase Config (shared + realtime) ===== */
-const firebaseConfig = {
-  apiKey: "AIzaSyDjttdgfTjtLtxdDNSYIqtKmh4FNYaB9vw",
-  authDomain: "aic-projects-57baa.firebaseapp.com",
-  projectId: "aic-projects-57baa",
-  storageBucket: "aic-projects-57baa.firebasestorage.app",
-  messagingSenderId: "267074355981",
-  appId: "1:267074355981:web:38dd5942c5c8849218e644",
-  measurementId: "G-4X4GTKYP2R"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
 // Workspace nga URL (?space=...)
 const urlParams = new URLSearchParams(location.search);
 const WORKSPACE_ID = (urlParams.get('space') || 'aic').trim().toLowerCase();
@@ -789,7 +784,6 @@ sharedDocRef.onSnapshot(snap => {
   };
 })();
 </script>
-
 
 <!-- === Role-based login & guards (added) === -->
 <script>
@@ -902,7 +896,6 @@ sharedDocRef.onSnapshot(snap => {
   }
 })();
 </script>
-
 
 <!-- Space Templates UI -->
 <button id="aicTplBtn">Template-t</button>
@@ -1023,7 +1016,6 @@ sharedDocRef.onSnapshot(snap => {
 })();
 </script>
 
-
 <!-- LIGHT NO-ROLES PATCH (keeps handlers intact) -->
 <script>
 (function(){
@@ -1050,7 +1042,6 @@ sharedDocRef.onSnapshot(snap => {
   run(); setTimeout(run,200); setTimeout(run,800);
 })();
 </script>
-
 
 <!-- ===== Export XLSX per Space -> ZIP (workspace-named) ===== -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1164,10 +1155,7 @@ sharedDocRef.onSnapshot(snap => {
 })();
 </script>
 
-
   <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <script>
     // Firebase config provided by the user
@@ -1195,8 +1183,118 @@ sharedDocRef.onSnapshot(snap => {
       }
     }
     // Ngarko të dhënat; eksporti ZIP përdor window.data
-    loadSpacesFromFirestore();
-  </script>
+    </script>
+<script>
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      console.log("✅ Logged in:", user.email);
+      showGate(false);
+      // Load Firestore data after login
+      if (typeof loadSpacesFromFirestore === 'function') {
+        loadSpacesFromFirestore();
+      }
+    } else {
+      console.log("ℹ️ Not logged in");
+      showGate(true);
+    }
+  });
+</script>
 
+<script>
+  // --- Auth wiring (requires firebase-auth-compat) ---
+  const auth = firebase.auth();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  catch (e) {
+      console.error("Sign-in error:", e);
+      alert("S’u krye hyrja: " + (e?.message || e));
+    }
+  }
+  async function signOut() {
+    try {
+      await auth.signOut();
+    } catch (e) {
+      console.error("Sign-out error:", e);
+    }
+  }
+
+  document.addEventListener('click', (ev) => {
+    if (ev.target && ev.target.id === 'btn-logout') signOut();
+  });
+
+  function showGate(show) {
+    const gate = document.getElementById('auth-gate');
+    const ctrl = document.getElementById('auth-controls');
+    if (!gate || !ctrl) return;
+    gate.style.display = show ? 'flex' : 'none';
+    ctrl.style.display = show ? 'none' : 'block';
+  }
+</script>
+
+<script>
+  function setAuthMsg(type, text) {
+    const err = document.getElementById('auth-error');
+    const info = document.getElementById('auth-info');
+    if (!err || !info) return;
+    err.style.display = 'none';
+    info.style.display = 'none';
+    if (type === 'error') { err.textContent = text; err.style.display = 'block'; }
+    if (type === 'info')  { info.textContent = text; info.style.display = 'block'; }
+  }
+
+  async function emailLogin(email, password) {
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+      setAuthMsg('info', 'U futët me sukses.');
+    } catch (e) {
+      console.error(e);
+      setAuthMsg('error', e && e.message ? e.message : 'Nuk u krye hyrja.');
+    }
+  }
+
+  async function emailRegister(email, password) {
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      try { await cred.user.sendEmailVerification(); } catch {}
+      setAuthMsg('info', 'Llogaria u krijua. Kontrollo email-in për verifikim.');
+    } catch (e) {
+      console.error(e);
+      setAuthMsg('error', e && e.message ? e.message : 'Nuk u krijua llogaria.');
+    }
+  }
+
+  async function emailReset(email) {
+    try {
+      await auth.sendPasswordResetEmail(email);
+      setAuthMsg('info', 'U dërgua email për rivendosjen e fjalëkalimit.');
+    } catch (e) {
+      console.error(e);
+      setAuthMsg('error', e && e.message ? e.message : 'Nuk u dërgua email-i i rivendosjes.');
+    }
+  }
+
+  // Wire events
+  document.addEventListener('submit', (ev) => {
+    if (ev.target && ev.target.id === 'email-signin-form') {
+      ev.preventDefault();
+      const email = document.getElementById('email-input')?.value?.trim();
+      const pass = document.getElementById('password-input')?.value;
+      if (email && pass) emailLogin(email, pass);
+    }
+  });
+  document.addEventListener('click', (ev) => {
+    const email = document.getElementById('email-input')?.value?.trim();
+    const pass = document.getElementById('password-input')?.value;
+    if (ev.target && ev.target.id === 'btn-email-register') {
+      ev.preventDefault();
+      if (email && pass) emailRegister(email, pass);
+    }
+    if (ev.target && ev.target.id === 'btn-email-reset') {
+      ev.preventDefault();
+      if (email) emailReset(email);
+      else setAuthMsg('error', 'Shkruaj email-in përpara.');
+    }
+  });
+</script>
 </body>
 </html>

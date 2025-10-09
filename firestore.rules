@@ -1,0 +1,21 @@
+// Firestore Security Rules — Auth required for read & write
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Everything requires authentication.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    /*
+    // OPTIONAL: Restrict to a specific email domain (e.g., aicorporation.al)
+    // Uncomment this block and comment out the generic block above if you want domain-only access.
+    match /{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email_verified == true
+                         && request.auth.token.email.matches('.*@aicorporation\.al$');
+    }
+    */
+  }
+}
