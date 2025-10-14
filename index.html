@@ -236,7 +236,7 @@
   </div>
 </div>
 
-<script src="./users.js"></script>
+<script src="./users.js?v=1760445928"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
@@ -1203,9 +1203,9 @@ sharedDocRef.onSnapshot(snap => {
 <script>
   // --- Auth wiring (requires firebase-auth-compat) ---
   const auth = firebase.auth();
-  provider.setCustomParameters({ prompt: 'select_account' });
+  // (patched) provider.setCustomParameters({ prompt: 'select_account' });
 
-  catch (e) {
+// (patched)   catch (e) {
       console.error("Sign-in error:", e);
       alert("S’u krye hyrja: " + (e?.message || e));
     }

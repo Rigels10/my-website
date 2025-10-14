@@ -21,5 +21,3 @@ Create a collection `spaces` with documents shaped like:
   ]
 }
 ```
-Test deploy
-Test deploy 2.
