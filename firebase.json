@@ -4,12 +4,20 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**",
-      ".github"
+      "**/node_modules/**"
     ],
     "headers": [
       {
-        "source": "**/*.html",
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/app.js",
         "headers": [
           {
             "key": "Cache-Control",
@@ -18,11 +26,20 @@
         ]
       },
       {
-        "source": "**/*.{js,css}",
+        "source": "/**/*.css",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public,max-age=600"
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/**/*.{png,jpg,jpeg,gif,svg,webp,ico}",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
           }
         ]
       }
