@@ -236,7 +236,7 @@
   </div>
 </div>
 
-<script src="./users.js?v=1760445928"></script>
+<script src="./users.js"></script>
 <script>
 /* ------------------ Persistenca & konfigurimi ------------------ */
 const KEY = "aicTasksV1";
@@ -1203,9 +1203,9 @@ sharedDocRef.onSnapshot(snap => {
 <script>
   // --- Auth wiring (requires firebase-auth-compat) ---
   const auth = firebase.auth();
-  // (patched) provider.setCustomParameters({ prompt: 'select_account' });
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-// (patched)   catch (e) {
+  catch (e) {
       console.error("Sign-in error:", e);
       alert("S’u krye hyrja: " + (e?.message || e));
     }
@@ -1295,6 +1295,23 @@ sharedDocRef.onSnapshot(snap => {
       else setAuthMsg('error', 'Shkruaj email-in përpara.');
     }
   });
+</script>
+<script>
+(function() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then(regs => Promise.all(regs.map(r => r.unregister())))
+      .then(() => {
+        if (caches && caches.keys) {
+          return caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+        }
+      })
+      .then(() => {
+        console.log('[SW] Unregistered & caches cleared');
+      })
+      .catch(e => console.warn('[SW] cleanup error', e));
+  }
+})();
 </script>
 </body>
 </html>
