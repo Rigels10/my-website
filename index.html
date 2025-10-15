@@ -1146,7 +1146,7 @@ async function saveData() {
 };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-
+    const auth = firebase.auth();
     async function loadSpacesFromFirestore() {
       try {
         const snapshot = await db.collection('spaces').get();
