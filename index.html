@@ -252,17 +252,26 @@ let priorityFilter = "";
 let ownerFilter = "";   // "" | "mine"
 let statusFilter = "";  // "" | "OPEN" | "IN PROGRESS" | "DONE" | "CLOSED"
 
-// ✅ Version cloud-only: nuk ruan më në localStorage
-function saveLocal() {
-  /* disabled - all data is saved in Firestore */
+function saveLocal(){
+  const clean = JSON.parse(JSON.stringify(window.data));
+  clean.forEach(sp=>sp.lists?.forEach(ls=>ls.tasks?.forEach(t=>{
+    if(t.files){ t.files = t.files.map(({name,size,type})=>({name,size,type})); }
+  })));
+  localStorage.setItem(KEY, JSON.stringify(clean));
 }
-
-function loadLocal() {
-  // Vetëm inicializim bosh nëse s'ka të dhëna nga Firestore
-  window.data = window.data || [];
-  window._openSpaces = new Set();
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      window.data = JSON.parse(raw);
+      window.data.forEach(sp=>sp.lists?.forEach(ls=>{ if(!ls.columns) ls.columns=[]; }));
+      return;
+    }
+  }catch{}
+  window.data = [];
+window._openSpaces = new Set(); // keeps which space indices are expanded
+saveLocal();
 }
-
 
 /* ------------------ Sidebar ------------------ */
 const spacesWrap = document.getElementById("spacesWrap");
@@ -723,31 +732,47 @@ const WORKSPACE_ID = (urlParams.get('space') || 'aic').trim().toLowerCase();
 document.getElementById('wsName').textContent = WORKSPACE_ID;
 
 // Path i përbashkët (shared) për këtë variant UI
-// Path i përbashkët (shared) për këtë variant UI
 const sharedDocRef = db.collection('spaces').doc(WORKSPACE_ID).collection('app').doc('v2');
 
-// 🔄 Real-time subscribe nga cloud (shared) — vetem Firestore, pa localStorage
-sharedDocRef.onSnapshot(snap => {
-  if (snap.exists) {
-    const cloud = snap.data()?.data || [];
-    window.data = cloud;
-    window.render();
-  } else {
-    // nëse s'ka doc në cloud, krijo një bosh
-    sharedDocRef.set({ data: window.data, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(console.error);
-  }
-});
-
-// Ruajtje ne cloud vetem — pa localStorage
-async function saveData() {
-  try {
-    const payload = { data: window.data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-    await sharedDocRef.set(payload);
-  } catch (e) {
-    console.error(e);
-  }
+// Debounce helper
+let saveTimer = 0;
+function debounce(fn, ms){
+  return function(){ clearTimeout(saveTimer); const args=arguments; saveTimer=setTimeout(()=>fn.apply(null,args), ms); };
 }
 
+// ⬆️ Ruajtje: lokale + cloud (shared)
+async function saveData(){
+  try{
+    // 1) lokale
+    saveLocal();
+    // 2) cloud
+    const payload = { data: window.data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    await sharedDocRef.set(payload);
+  }catch(e){ console.error(e); }
+}
+const saveDataDebounced = debounce(saveData, 400);
+
+// 🔄 Real-time subscribe nga cloud (shared)
+let initialPulled = false;
+sharedDocRef.onSnapshot(snap => {
+  if(snap.exists){
+    const cloud = snap.data()?.data || [];
+    // shmang riloop-in: mos e mbishkruaj nëse është identike me lokale
+    const local = localStorage.getItem(KEY);
+    const was = local ? JSON.parse(local) : null;
+    const same = JSON.stringify(was) === JSON.stringify(cloud);
+    window.data = cloud;
+    if(!same){ saveLocal(); }
+    window.render();
+    initialPulled = true;
+  } else {
+    // nëse s'ka doc në cloud, shty lokale si default shared
+    if(!initialPulled){
+      sharedDocRef.set({ data: window.data, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(console.error);
+      initialPulled = true;
+    }
+  }
+});
 
 // Patch operacionet që modifikojnë të dhënat të përdorin ruajtje të debounced
 (function(){
@@ -1135,18 +1160,18 @@ async function saveData() {
 
   <script>
     // Firebase config provided by the user
-    const firebaseConfig = {
-  "apiKey": "AIzaSyB9gJOvrRatlOpw7IXNmwnnNQYv9ivFYmU",
-  "authDomain": "aic-m-4460f.firebaseapp.com",
-  "projectId": "aic-m-4460f",
-  "storageBucket": "aic-m-4460f.firebasestorage.app",
-  "messagingSenderId": "884813548315",
-  "appId": "1:884813548315:web:b12360def279fd3bc2e1be",
-  "measurementId": "G-1P2JNTW538"
+const firebaseConfig = {
+  apiKey: "AIzaSyB9gJOvrRatlOpw7IXNmwnnNQYv9ivFYmU",
+  authDomain: "aic-m-4460f.firebaseapp.com",
+  projectId: "aic-m-4460f",
+  storageBucket: "aic-m-4460f.firebasestorage.app",
+  messagingSenderId: "884813548315",
+  appId: "1:884813548315:web:b12360def279fd3bc2e1be",
+  measurementId: "G-1P2JNTW538"
 };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const auth = firebase.auth();
+
     async function loadSpacesFromFirestore() {
       try {
         const snapshot = await db.collection('spaces').get();
